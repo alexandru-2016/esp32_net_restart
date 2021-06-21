@@ -7,15 +7,18 @@
 
 #define US_TO_S_MULTIPLIER 1000000
 #define SEC_TO_SLEEP 300
+#define WIFI_CONNECT_WAIT_SEC 90
+#define INTERNET_ACCESS_WAIT_SEC 900
+#define INTERNET_ACCESS_TEST_HOST "google.com"
 
 RTC_DATA_ATTR int bootCount = 0;
 
-void setup_wpa2() {  
-  char* ssid = WPA2_SSID;
-  char* password = WPA2_PASS;
+void setup_wifi() {  
+  char* ssid = WIFI_SSID;
+  char* password = WIFI_PASS;
 
   Serial.println();
-  Serial.print("Connecting to WPA2: ");
+  Serial.print("Connecting to wifi: ");
   Serial.println(ssid);
 
   WiFi.begin(ssid, password);
@@ -28,6 +31,11 @@ bool check_wifi(int secondsTimeout) {
       delay(1000);
       Serial.print(".");
       retryCount++;
+
+      if (retryCount % 5 == 0) {
+        Serial.println("Wifi reconnect");
+        WiFi.reconnect(); // try to workaround WiFi not connecting after deep sleep
+      }
   }
   Serial.println("");
 
@@ -119,16 +127,40 @@ void start_update() {
 
 bool resolve_google_dot_com() {
   IPAddress resolvedIP;
-  Serial.println("Resolving google.com ");
+  Serial.print("Resolving ");
+  Serial.println(INTERNET_ACCESS_TEST_HOST);
 
-  bool resolved = WiFi.hostByName("google.com", resolvedIP);
+  bool resolved = WiFi.hostByName(INTERNET_ACCESS_TEST_HOST, resolvedIP);
 
   if (resolved) {
-    Serial.println("Successfully resolved google.com");
+    Serial.print("Successfully resolved ");
+    Serial.println(INTERNET_ACCESS_TEST_HOST);
   } else {
-    Serial.println("Could not resolve google.com");
+    Serial.print("Could not resolve ");
+    Serial.println(INTERNET_ACCESS_TEST_HOST);
   }
   
+  return resolved;
+}
+
+bool check_internet(int secondsTimeout) {
+  int retryTime = 0;
+  bool resolved = false;
+  
+  Serial.println("Check internet access");
+  
+  while (retryTime < secondsTimeout) {
+    resolved = resolve_google_dot_com();
+    if (resolved) {
+      break;
+    }
+    
+    delay(5000);
+    retryTime = retryTime + 5;
+  }
+  
+  Serial.println("");
+
   return resolved;
 }
 
@@ -138,16 +170,16 @@ void loop() {
     restart_usb_output();
   }
   
-  setup_wpa2();
+  setup_wifi();
 
-  bool wifiOk = check_wifi(30);
+  bool wifiOk = check_wifi(WIFI_CONNECT_WAIT_SEC);
 
   if (!wifiOk) {
     restart_usb_output();
   } else {
     start_update();
     
-    if (!resolve_google_dot_com()) {
+    if (!check_internet(INTERNET_ACCESS_WAIT_SEC)) {
       restart_usb_output();
     }
 
