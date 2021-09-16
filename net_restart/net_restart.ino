@@ -104,6 +104,8 @@ void start_update() {
   Serial.println(UPDATE_SERVER);
 
   ESPhttpUpdate.rebootOnUpdate(false);
+  // hacked ESP32httpUpdate.cpp handleUpdate
+  // to increase http.setTimeout to 5 minutes
   t_httpUpdate_return ret = ESPhttpUpdate.update(UPDATE_SERVER, VERSION);
 
   switch(ret) {
